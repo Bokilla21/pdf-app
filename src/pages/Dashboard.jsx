@@ -50,6 +50,16 @@ export default function Dashboard({ session }) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  async function downloadFile(f) {
+    const { data } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
+    if (data?.signedUrl) {
+      const a = document.createElement('a')
+      a.href = data.signedUrl
+      a.download = f.name
+      a.click()
+    }
+  }
+
   async function deleteFile(f) {
     if (!confirm(`Obriši "${f.name}"?`)) return
     await supabase.storage.from('pdfs').remove([f.storage_path])
@@ -79,11 +89,11 @@ export default function Dashboard({ session }) {
   const totalSize = files.reduce((s, f) => s + f.size, 0)
 
   return (
-    <div style={{ maxWidth: 860, margin: '32px auto', padding: '0 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div>
           <h2 style={{ margin: 0, color: theme.primary, fontSize: 20 }}>Moji dokumenti</h2>
-          <p style={{ margin: 0, fontSize: 13, color: '#888' }}>{files.length} fajlova · {(totalSize / 1048576).toFixed(1)} MB</p>
+          <p style={{ margin: 0, fontSize: 13, color: '#888', marginTop: 2 }}>{files.length} fajlova · {(totalSize / 1048576).toFixed(1)} MB</p>
         </div>
         <button
           onClick={handleLogout}
@@ -91,6 +101,8 @@ export default function Dashboard({ session }) {
           Odjavi se
         </button>
       </div>
+
+      <div style={{ height: 1, background: theme.border, margin: '16px 0 20px' }} />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
@@ -116,22 +128,24 @@ export default function Dashboard({ session }) {
 
       <div>
         {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
-            <p style={{ fontSize: 32, margin: 0 }}>📄</p>
-            <p style={{ marginTop: 8 }}>Nema fajlova</p>
+          <div style={{ textAlign: 'center', padding: 64, color: '#aaa' }}>
+            <p style={{ fontSize: 48, margin: 0 }}>📄</p>
+            <p style={{ marginTop: 12, fontSize: 15 }}>Nema fajlova</p>
+            <p style={{ fontSize: 13, color: '#bbb' }}>Klikni "+ Dodaj PDF" da dodaš prvi dokument</p>
           </div>
         )}
         {filtered.map(f => (
-          <div key={f.id} style={{ padding: '14px 16px', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600 }}>PDF</div>
+              <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
               <div>
                 <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
-                <p style={{ fontSize: 12, color: '#888', margin: 0 }}>{Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}</p>
+                <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>{Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}</p>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => openFile(f)} style={{ padding: '6px 12px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Otvori</button>
+              <button onClick={() => downloadFile(f)} style={{ padding: '6px 12px', background: '#27ae60', color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preuzmi</button>
               <button onClick={() => renameFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preimenuj</button>
               <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
             </div>

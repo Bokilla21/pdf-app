@@ -46,8 +46,8 @@ export default function App() {
   if (!session) return <Login />
 
   return (
-    <div style={{ minHeight: '100vh', background: theme.light }}>
-      <div style={{ background: theme.primary, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
+    <div style={{ minHeight: '100vh', background: theme.primary }}>
+      <div style={{ background: '#12285a', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src="/assets/mlogo.jpg" alt="Delta Auto Group" style={{ height: 40, borderRadius: 6 }} />
           <span style={{ color: theme.white, fontWeight: 600, fontSize: 16, letterSpacing: 0.5 }}>PDF Biblioteka</span>
@@ -67,7 +67,9 @@ export default function App() {
           </div>
         )}
       </div>
-      {page === 'admin' && isAdmin ? <Admin /> : <Dashboard session={session} />}
+      <div style={{ maxWidth: 900, margin: '0 auto', background: '#ffffff', minHeight: 'calc(100vh - 64px)', padding: '32px 24px' }}>
+        {page === 'admin' && isAdmin ? <Admin /> : <Dashboard session={session} />}
+      </div>
     </div>
   )
 }
