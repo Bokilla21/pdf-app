@@ -5,13 +5,17 @@ export default function Dashboard({ session }) {
   const [files, setFiles] = useState([])
   const [search, setSearch] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [sortBy, setSortBy] = useState('created_at')
 
   useEffect(() => {
     fetchFiles()
   }, [])
 
   async function fetchFiles() {
-    const { data } = await supabase.from('files').select('*')
+    const { data } = await supabase
+      .from('files')
+      .select('*')
+      .order('created_at', { ascending: false })
     setFiles(data || [])
   }
 
@@ -38,13 +42,31 @@ export default function Dashboard({ session }) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  async function deleteFile(f) {
+    if (!confirm(`Obriši "${f.name}"?`)) return
+    await supabase.storage.from('pdfs').remove([f.storage_path])
+    await supabase.from('files').delete().eq('id', f.id)
+    fetchFiles()
+  }
+
+  async function renameFile(f) {
+    const newName = prompt('Novo ime:', f.name)
+    if (!newName || newName === f.name) return
+    await supabase.from('files').update({ name: newName }).eq('id', f.id)
+    fetchFiles()
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
   }
 
-  const filtered = files.filter(f =>
-    f.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = files
+    .filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      if (sortBy === 'size') return b.size - a.size
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
 
   return (
     <div style={{ maxWidth: 800, margin: '40px auto', padding: 24 }}>
@@ -52,25 +74,41 @@ export default function Dashboard({ session }) {
         <h2>PDF biblioteka</h2>
         <button onClick={handleLogout}>Odjavi se</button>
       </div>
-      <input
-        placeholder="Pretraži fajlove..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ width: '100%', padding: 8, marginBottom: 16 }}
-      />
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <input
+          placeholder="Pretraži fajlove..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: 1, padding: 8 }}
+        />
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
+          <option value="created_at">Po datumu</option>
+          <option value="name">Po imenu</option>
+          <option value="size">Po veličini</option>
+        </select>
+      </div>
+
       <label style={{ display: 'inline-block', padding: '8px 16px', border: '1px solid #ccc', cursor: 'pointer', marginBottom: 24 }}>
         {uploading ? 'Učitavanje...' : 'Dodaj PDF'}
         <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
       </label>
+
       <div>
         {filtered.length === 0 && <p style={{ color: '#888' }}>Nema fajlova.</p>}
         {filtered.map(f => (
           <div key={f.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ fontWeight: 500 }}>{f.name}</p>
-              <p style={{ fontSize: 13, color: '#888' }}>{Math.round(f.size / 1024)} KB</p>
+              <p style={{ fontSize: 13, color: '#888' }}>
+                {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}
+              </p>
             </div>
-            <button onClick={() => openFile(f)}>Otvori</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => openFile(f)}>Otvori</button>
+              <button onClick={() => renameFile(f)}>Preimenuj</button>
+              <button onClick={() => deleteFile(f)} style={{ color: 'red' }}>Obriši</button>
+            </div>
           </div>
         ))}
       </div>
