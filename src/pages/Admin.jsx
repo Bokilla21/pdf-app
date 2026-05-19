@@ -31,25 +31,33 @@ export default function Admin() {
     alert('Link kopiran!')
   }
 
+  const aktivni = invites.filter(i => !i.used)
+  const iskorisceni = invites.filter(i => i.used)
+
   return (
     <div style={{ maxWidth: 800, margin: '40px auto', padding: 24 }}>
       <h2 style={{ marginBottom: 24 }}>Admin panel</h2>
-      <button onClick={generateInvite} disabled={loading} style={{ marginBottom: 24, padding: '8px 20px' }}>
+      <button onClick={generateInvite} disabled={loading} style={{ marginBottom: 32, padding: '8px 20px' }}>
         {loading ? 'Generišem...' : '+ Generiši invite link'}
       </button>
-      <div>
-        {invites.map(inv => (
-          <div key={inv.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ fontWeight: 500, fontSize: 13 }}>{inv.token}</p>
-              <p style={{ fontSize: 12, color: inv.used ? 'green' : '#888' }}>{inv.used ? 'Iskorišćen' : 'Aktivan'}</p>
-            </div>
-            {!inv.used && (
-              <button onClick={() => copyLink(inv.token)}>Kopiraj link</button>
-            )}
-          </div>
-        ))}
-      </div>
+
+      <h3 style={{ marginBottom: 12 }}>Aktivni linkovi ({aktivni.length})</h3>
+      {aktivni.length === 0 && <p style={{ color: '#888', marginBottom: 24 }}>Nema aktivnih linkova.</p>}
+      {aktivni.map(inv => (
+        <div key={inv.id} style={{ padding: 12, border: '1px solid #c3e6cb', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fff4' }}>
+          <p style={{ fontSize: 13, color: '#2d6a4f' }}>{inv.token}</p>
+          <button onClick={() => copyLink(inv.token)}>Kopiraj link</button>
+        </div>
+      ))}
+
+      <h3 style={{ marginBottom: 12, marginTop: 32 }}>Iskorišćeni linkovi ({iskorisceni.length})</h3>
+      {iskorisceni.length === 0 && <p style={{ color: '#888' }}>Nema iskorišćenih linkova.</p>}
+      {iskorisceni.map(inv => (
+        <div key={inv.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, background: '#f9f9f9' }}>
+          <p style={{ fontSize: 13, color: '#888' }}>{inv.token}</p>
+          <p style={{ fontSize: 12, color: '#aaa' }}>Iskorišćen</p>
+        </div>
+      ))}
     </div>
   )
 }
