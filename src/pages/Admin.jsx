@@ -46,24 +46,33 @@ export default function Admin() {
   const iskorisceni = invites.filter(i => i.used)
 
   return (
-    <div style={{ maxWidth: 800, margin: '40px auto', padding: 24 }}>
-      <h2 style={{ marginBottom: 24 }}>Admin panel</h2>
+    <div style={{ maxWidth: 800, margin: '32px auto', padding: '0 24px' }}>
+      <h2 style={{ color: '#1a3a6b', marginBottom: 24 }}>Admin panel</h2>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <button onClick={() => setTab('korisnici')} style={{ fontWeight: tab === 'korisnici' ? 700 : 400, padding: '8px 16px' }}>Korisnici</button>
-        <button onClick={() => setTab('invites')} style={{ fontWeight: tab === 'invites' ? 700 : 400, padding: '8px 16px' }}>Invite linkovi</button>
+        <button
+          onClick={() => setTab('korisnici')}
+          style={{ padding: '7px 16px', background: tab === 'korisnici' ? '#1a3a6b' : 'transparent', color: tab === 'korisnici' ? '#fff' : '#1a3a6b', border: '1px solid #d0dce8', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+          Korisnici ({users.length})
+        </button>
+        <button
+          onClick={() => setTab('invites')}
+          style={{ padding: '7px 16px', background: tab === 'invites' ? '#1a3a6b' : 'transparent', color: tab === 'invites' ? '#fff' : '#1a3a6b', border: '1px solid #d0dce8', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+          Invite linkovi
+        </button>
       </div>
 
       {tab === 'korisnici' && (
         <div>
-          <p style={{ color: '#888', marginBottom: 16, fontSize: 13 }}>Ukupno korisnika: {users.length}</p>
           {users.map(u => (
-            <div key={u.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={u.id} style={{ padding: '12px 16px', background: '#fff', border: '1px solid #d0dce8', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p style={{ fontWeight: 500, fontSize: 14 }}>{u.id}</p>
-                <p style={{ fontSize: 12, color: u.is_admin ? 'green' : '#888' }}>{u.is_admin ? 'Admin' : 'Korisnik'}</p>
+                <p style={{ fontWeight: 500, fontSize: 14, margin: 0, color: '#222' }}>{u.email || u.id}</p>
+                <p style={{ fontSize: 12, color: u.is_admin ? '#1a3a6b' : '#888', margin: 0, marginTop: 2 }}>{u.is_admin ? 'Admin' : 'Korisnik'}</p>
               </div>
-              <p style={{ fontSize: 12, color: '#aaa' }}>{new Date(u.created_at).toLocaleDateString('sr-RS')}</p>
+              <p style={{ fontSize: 12, color: '#aaa', margin: 0 }}>
+                {u.created_at ? new Date(u.created_at).toLocaleDateString('sr-RS') : '—'}
+              </p>
             </div>
           ))}
         </div>
@@ -71,23 +80,32 @@ export default function Admin() {
 
       {tab === 'invites' && (
         <div>
-          <button onClick={generateInvite} disabled={loading} style={{ marginBottom: 24, padding: '8px 20px' }}>
+          <button
+            onClick={generateInvite}
+            disabled={loading}
+            style={{ marginBottom: 24, padding: '9px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
             {loading ? 'Generišem...' : '+ Generiši invite link'}
           </button>
-          <h3 style={{ marginBottom: 12 }}>Aktivni ({aktivni.length})</h3>
-          {aktivni.length === 0 && <p style={{ color: '#888', marginBottom: 24 }}>Nema aktivnih linkova.</p>}
+
+          <h3 style={{ marginBottom: 12, color: '#1a3a6b', fontSize: 15 }}>Aktivni ({aktivni.length})</h3>
+          {aktivni.length === 0 && <p style={{ color: '#888', marginBottom: 24, fontSize: 13 }}>Nema aktivnih linkova.</p>}
           {aktivni.map(inv => (
-            <div key={inv.id} style={{ padding: 12, border: '1px solid #c3e6cb', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fff4' }}>
-              <p style={{ fontSize: 13, color: '#2d6a4f' }}>{inv.token}</p>
-              <button onClick={() => copyLink(inv.token)}>Kopiraj link</button>
+            <div key={inv.id} style={{ padding: '12px 16px', border: '1px solid #c3e6cb', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fff4' }}>
+              <p style={{ fontSize: 13, color: '#2d6a4f', margin: 0 }}>{inv.token}</p>
+              <button
+                onClick={() => copyLink(inv.token)}
+                style={{ padding: '6px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                Kopiraj link
+              </button>
             </div>
           ))}
-          <h3 style={{ marginBottom: 12, marginTop: 24 }}>Iskorišćeni ({iskorisceni.length})</h3>
-          {iskorisceni.length === 0 && <p style={{ color: '#888' }}>Nema iskorišćenih.</p>}
+
+          <h3 style={{ marginBottom: 12, marginTop: 24, color: '#888', fontSize: 15 }}>Iskorišćeni ({iskorisceni.length})</h3>
+          {iskorisceni.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Nema iskorišćenih.</p>}
           {iskorisceni.map(inv => (
-            <div key={inv.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, background: '#f9f9f9' }}>
-              <p style={{ fontSize: 13, color: '#888' }}>{inv.token}</p>
-              <p style={{ fontSize: 12, color: '#aaa' }}>Iskorišćen</p>
+            <div key={inv.id} style={{ padding: '12px 16px', border: '1px solid #eee', borderRadius: 8, marginBottom: 8, background: '#f9f9f9' }}>
+              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{inv.token}</p>
+              <p style={{ fontSize: 12, color: '#aaa', margin: 0, marginTop: 2 }}>Iskorišćen</p>
             </div>
           ))}
         </div>

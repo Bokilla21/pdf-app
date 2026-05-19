@@ -31,12 +31,16 @@ export default function App() {
   }, [])
 
   async function checkAdmin(userId) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', userId)
-      .single()
-    setIsAdmin(data?.is_admin || false)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle()
+      if (!error && data) setIsAdmin(data.is_admin || false)
+    } catch (e) {
+      setIsAdmin(false)
+    }
   }
 
   if (!session) return <Login />
