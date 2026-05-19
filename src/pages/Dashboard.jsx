@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
+const theme = {
+  primary: '#1a3a6b',
+  accent: '#4a90c4',
+  white: '#ffffff',
+  light: '#f0f4f8',
+  border: '#d0dce8',
+}
+
 export default function Dashboard({ session }) {
   const [files, setFiles] = useState([])
   const [search, setSearch] = useState('')
@@ -68,11 +76,20 @@ export default function Dashboard({ session }) {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
+  const totalSize = files.reduce((s, f) => s + f.size, 0)
+
   return (
-    <div style={{ maxWidth: 800, margin: '40px auto', padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h2>PDF biblioteka</h2>
-        <button onClick={handleLogout}>Odjavi se</button>
+    <div style={{ maxWidth: 860, margin: '32px auto', padding: '0 24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h2 style={{ margin: 0, color: theme.primary, fontSize: 20 }}>Moji dokumenti</h2>
+          <p style={{ margin: 0, fontSize: 13, color: '#888' }}>{files.length} fajlova · {(totalSize / 1048576).toFixed(1)} MB</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          style={{ padding: '7px 16px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+          Odjavi se
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -80,34 +97,43 @@ export default function Dashboard({ session }) {
           placeholder="Pretraži fajlove..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, padding: 8 }}
+          style={{ flex: 1, padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 14 }}
         />
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{ padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, color: '#555' }}>
           <option value="created_at">Po datumu</option>
           <option value="name">Po imenu</option>
           <option value="size">Po veličini</option>
         </select>
       </div>
 
-      <label style={{ display: 'inline-block', padding: '8px 16px', border: '1px solid #ccc', cursor: 'pointer', marginBottom: 24 }}>
-        {uploading ? 'Učitavanje...' : 'Dodaj PDF'}
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', marginBottom: 24, fontSize: 13 }}>
+        {uploading ? 'Učitavanje...' : '+ Dodaj PDF'}
         <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
       </label>
 
       <div>
-        {filtered.length === 0 && <p style={{ color: '#888' }}>Nema fajlova.</p>}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
+            <p style={{ fontSize: 32, margin: 0 }}>📄</p>
+            <p style={{ marginTop: 8 }}>Nema fajlova</p>
+          </div>
+        )}
         {filtered.map(f => (
-          <div key={f.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ fontWeight: 500 }}>{f.name}</p>
-              <p style={{ fontSize: 13, color: '#888' }}>
-                {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}
-              </p>
+          <div key={f.id} style={{ padding: '14px 16px', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600 }}>PDF</div>
+              <div>
+                <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
+                <p style={{ fontSize: 12, color: '#888', margin: 0 }}>{Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}</p>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => openFile(f)}>Otvori</button>
-              <button onClick={() => renameFile(f)}>Preimenuj</button>
-              <button onClick={() => deleteFile(f)} style={{ color: 'red' }}>Obriši</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => openFile(f)} style={{ padding: '6px 12px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Otvori</button>
+              <button onClick={() => renameFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preimenuj</button>
+              <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
             </div>
           </div>
         ))}
