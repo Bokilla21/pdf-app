@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
+import Folders from './pages/Folders'
 
 const theme = {
   primary: '#1a3a6b',
@@ -52,23 +53,30 @@ export default function App() {
           <img src="/assets/mlogo.jpg" alt="Delta Auto Group" style={{ height: 40, borderRadius: 6 }} />
           <span style={{ color: theme.white, fontWeight: 600, fontSize: 16, letterSpacing: 0.5 }}>PDF Biblioteka</span>
         </div>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              onClick={() => setPage('dashboard')}
-              style={{ padding: '6px 16px', background: page === 'dashboard' ? theme.accent : 'transparent', color: theme.white, border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-              Moji fajlovi
-            </button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={() => setPage('dashboard')}
+            style={{ padding: '6px 16px', background: page === 'dashboard' ? theme.accent : 'transparent', color: theme.white, border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+            Moji fajlovi
+          </button>
+          <button
+            onClick={() => setPage('folders')}
+            style={{ padding: '6px 16px', background: page === 'folders' ? theme.accent : 'transparent', color: theme.white, border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+            Folderi
+          </button>
+          {isAdmin && (
             <button
               onClick={() => setPage('admin')}
               style={{ padding: '6px 16px', background: page === 'admin' ? theme.accent : 'transparent', color: theme.white, border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
               Admin panel
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      <div style={{ maxWidth: 900, margin: '0 auto', background: '#ffffff', minHeight: 'calc(100vh - 64px)', padding: '32px 24px' }}>
-        {page === 'admin' && isAdmin ? <Admin /> : <Dashboard session={session} />}
+      <div style={{ maxWidth: 1000, margin: '0 auto', background: '#ffffff', minHeight: 'calc(100vh - 64px)', padding: '32px 24px' }}>
+        {page === 'admin' && isAdmin && <Admin />}
+        {page === 'folders' && <Folders session={session} />}
+        {page === 'dashboard' && <Dashboard session={session} />}
       </div>
     </div>
   )
