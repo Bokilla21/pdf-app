@@ -42,7 +42,7 @@ export default function Folders({ session }) {
   async function fetchFiles(folderId) {
     const { data } = await supabase
       .from('files')
-      .select('*, profiles(email)')
+      .select('*')
       .eq('folder_id', folderId)
       .order('created_at', { ascending: false })
     setFiles(data || [])
@@ -51,7 +51,7 @@ export default function Folders({ session }) {
   async function fetchMembers(folderId) {
     const { data } = await supabase
       .from('folder_members')
-      .select('*, profiles(email)')
+      .select('*')
       .eq('folder_id', folderId)
     setMembers(data || [])
   }
@@ -158,7 +158,7 @@ export default function Folders({ session }) {
   }
 
   function getEmail(userId) {
-    return users.find(u => u.id === userId)?.email || userId.slice(0, 8)
+    return users.find(u => u.id === userId)?.email || userId?.slice(0, 8) || '—'
   }
 
   const otherUsers = users.filter(u => u.id !== session.user.id)
@@ -169,12 +169,10 @@ export default function Folders({ session }) {
   return (
     <div style={{ display: 'flex', gap: 24, minHeight: 600 }}>
 
-      {/* Leva strana */}
       <div style={{ width: 260, flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, color: theme.primary, fontSize: 16 }}>Folderi</h3>
-          <button
-            onClick={() => setShowNewFolder(!showNewFolder)}
+          <button onClick={() => setShowNewFolder(!showNewFolder)}
             style={{ padding: '5px 12px', background: theme.primary, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
             + Novi
           </button>
@@ -182,12 +180,8 @@ export default function Folders({ session }) {
 
         {showNewFolder && (
           <div style={{ padding: 16, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 16 }}>
-            <input
-              placeholder="Naziv foldera"
-              value={folderName}
-              onChange={e => setFolderName(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, marginBottom: 10, boxSizing: 'border-box' }}
-            />
+            <input placeholder="Naziv foldera" value={folderName} onChange={e => setFolderName(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, marginBottom: 10, boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button onClick={() => setIsPrivate(true)} style={{ flex: 1, padding: '6px', background: isPrivate ? theme.primary : 'transparent', color: isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔒 Privatni</button>
               <button onClick={() => setIsPrivate(false)} style={{ flex: 1, padding: '6px', background: !isPrivate ? theme.primary : 'transparent', color: !isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>👥 Deljeni</button>
@@ -228,7 +222,6 @@ export default function Folders({ session }) {
         {folders.length === 0 && <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>}
       </div>
 
-      {/* Desna strana */}
       <div style={{ flex: 1 }}>
         {!activeFolder ? (
           <div style={{ textAlign: 'center', padding: 64, color: '#aaa' }}>
@@ -241,7 +234,9 @@ export default function Folders({ session }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: 0, color: theme.primary }}>{activeFolder.is_private ? '🔒' : '👥'} {activeFolder.name}</h3>
-                <p style={{ margin: 0, fontSize: 12, color: '#888', marginTop: 2 }}>Kreirao: {getEmail(activeFolder.owner_id)} · {new Date(activeFolder.created_at).toLocaleDateString('sr-RS')}</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#888', marginTop: 2 }}>
+                  Kreirao: {getEmail(activeFolder.owner_id)} · {new Date(activeFolder.created_at).toLocaleDateString('sr-RS')}
+                </p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {isOwner && (
@@ -263,7 +258,7 @@ export default function Folders({ session }) {
                 {members.length === 0 && <p style={{ fontSize: 13, color: '#888', margin: '0 0 10px' }}>Nema članova</p>}
                 {members.map(m => (
                   <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
-                    <span style={{ fontSize: 13 }}>{m.profiles?.email || m.user_id.slice(0, 8)}</span>
+                    <span style={{ fontSize: 13 }}>{getEmail(m.user_id)}</span>
                     <button onClick={() => removeMember(m.id)} style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 12 }}>Ukloni</button>
                   </div>
                 ))}
@@ -295,7 +290,7 @@ export default function Folders({ session }) {
                   <div>
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
                     <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>
-                      {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')} · Dodao: {f.profiles?.email || getEmail(f.owner_id)}
+                      {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')} · Dodao: {getEmail(f.owner_id)}
                     </p>
                   </div>
                 </div>
