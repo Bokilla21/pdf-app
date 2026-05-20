@@ -20,6 +20,8 @@ export default function Folders({ session }) {
   const [isPrivate, setIsPrivate] = useState(true)
   const [selectedUsers, setSelectedUsers] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('created_at')
 
   useEffect(() => {
     fetchFolders()
@@ -80,6 +82,8 @@ export default function Folders({ session }) {
   async function openFolder(folder) {
     setActiveFolder(folder)
     setShowDetails(false)
+    setSearch('')
+    setSortBy('created_at')
     fetchFiles(folder.id)
     fetchMembers(folder.id)
   }
@@ -165,6 +169,14 @@ export default function Folders({ session }) {
   const isOwner = activeFolder?.owner_id === session.user.id
   const memberIds = members.map(m => m.user_id)
   const nonMembers = otherUsers.filter(u => !memberIds.includes(u.id) && u.id !== activeFolder?.owner_id)
+
+  const filteredFiles = files
+    .filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      if (sortBy === 'size') return b.size - a.size
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
 
   return (
     <div style={{ display: 'flex', gap: 24, minHeight: 600 }}>
@@ -276,14 +288,29 @@ export default function Folders({ session }) {
               </div>
             )}
 
-            {files.length === 0 && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                placeholder="Pretraži fajlove u folderu..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ flex: 1, padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 14 }}
+              />
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                style={{ padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, color: '#555' }}>
+                <option value="created_at">Po datumu</option>
+                <option value="name">Po imenu</option>
+                <option value="size">Po veličini</option>
+              </select>
+            </div>
+
+            {filteredFiles.length === 0 && (
               <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
                 <p style={{ fontSize: 32, margin: 0 }}>📄</p>
                 <p style={{ marginTop: 8, fontSize: 14 }}>Folder je prazan</p>
               </div>
             )}
 
-            {files.map(f => (
+            {filteredFiles.map(f => (
               <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
