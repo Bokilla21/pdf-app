@@ -13,7 +13,9 @@ export default function Folders({ session }) {
   const [activeFolder, setActiveFolder] = useState(null)
   const [files, setFiles] = useState([])
   const [users, setUsers] = useState([])
+  const [members, setMembers] = useState([])
   const [showNewFolder, setShowNewFolder] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [isPrivate, setIsPrivate] = useState(true)
   const [selectedUsers, setSelectedUsers] = useState([])
@@ -25,28 +27,33 @@ export default function Folders({ session }) {
   }, [])
 
   async function fetchFolders() {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('folders')
       .select('*')
       .order('created_at', { ascending: false })
-    console.log('folders:', data, error)
     setFolders(data || [])
   }
 
   async function fetchUsers() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
+    const { data } = await supabase.from('profiles').select('*')
     setUsers(data || [])
   }
 
   async function fetchFiles(folderId) {
     const { data } = await supabase
       .from('files')
-      .select('*')
+      .select('*, profiles(email)')
       .eq('folder_id', folderId)
       .order('created_at', { ascending: false })
     setFiles(data || [])
+  }
+
+  async function fetchMembers(folderId) {
+    const { data } = await supabase
+      .from('folder_members')
+      .select('*, profiles(email)')
+      .eq('folder_id', folderId)
+    setMembers(data || [])
   }
 
   async function createFolder() {
@@ -56,14 +63,11 @@ export default function Folders({ session }) {
       .insert({ name: folderName, is_private: isPrivate, owner_id: session.user.id })
       .select()
       .single()
-    console.log('folder data:', data)
-    console.log('folder error:', error)
     if (!error && data) {
       if (!isPrivate && selectedUsers.length > 0) {
-        const { error: memberError } = await supabase.from('folder_members').insert(
+        await supabase.from('folder_members').insert(
           selectedUsers.map(uid => ({ folder_id: data.id, user_id: uid }))
         )
-        console.log('member error:', memberError)
       }
       setFolderName('')
       setIsPrivate(true)
@@ -75,7 +79,9 @@ export default function Folders({ session }) {
 
   async function openFolder(folder) {
     setActiveFolder(folder)
+    setShowDetails(false)
     fetchFiles(folder.id)
+    fetchMembers(folder.id)
   }
 
   async function handleUpload(e) {
@@ -119,11 +125,30 @@ export default function Folders({ session }) {
     fetchFiles(activeFolder.id)
   }
 
+  async function renameFile(f) {
+    const isOwner = activeFolder.owner_id === session.user.id
+    if (!isOwner && f.owner_id !== session.user.id) return
+    const newName = prompt('Novo ime:', f.name)
+    if (!newName || newName === f.name) return
+    await supabase.from('files').update({ name: newName }).eq('id', f.id)
+    fetchFiles(activeFolder.id)
+  }
+
   async function deleteFolder(folder) {
     if (!confirm(`Obriši folder "${folder.name}"?`)) return
     await supabase.from('folders').delete().eq('id', folder.id)
     if (activeFolder?.id === folder.id) setActiveFolder(null)
     fetchFolders()
+  }
+
+  async function addMember(uid) {
+    await supabase.from('folder_members').insert({ folder_id: activeFolder.id, user_id: uid })
+    fetchMembers(activeFolder.id)
+  }
+
+  async function removeMember(memberId) {
+    await supabase.from('folder_members').delete().eq('id', memberId)
+    fetchMembers(activeFolder.id)
   }
 
   function toggleUser(uid) {
@@ -132,11 +157,19 @@ export default function Folders({ session }) {
     )
   }
 
+  function getEmail(userId) {
+    return users.find(u => u.id === userId)?.email || userId.slice(0, 8)
+  }
+
   const otherUsers = users.filter(u => u.id !== session.user.id)
+  const isOwner = activeFolder?.owner_id === session.user.id
+  const memberIds = members.map(m => m.user_id)
+  const nonMembers = otherUsers.filter(u => !memberIds.includes(u.id) && u.id !== activeFolder?.owner_id)
 
   return (
     <div style={{ display: 'flex', gap: 24, minHeight: 600 }}>
 
+      {/* Leva strana */}
       <div style={{ width: 260, flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, color: theme.primary, fontSize: 16 }}>Folderi</h3>
@@ -156,46 +189,26 @@ export default function Folders({ session }) {
               style={{ width: '100%', padding: '8px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, marginBottom: 10, boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-              <button
-                onClick={() => setIsPrivate(true)}
-                style={{ flex: 1, padding: '6px', background: isPrivate ? theme.primary : 'transparent', color: isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                🔒 Privatni
-              </button>
-              <button
-                onClick={() => setIsPrivate(false)}
-                style={{ flex: 1, padding: '6px', background: !isPrivate ? theme.primary : 'transparent', color: !isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                👥 Deljeni
-              </button>
+              <button onClick={() => setIsPrivate(true)} style={{ flex: 1, padding: '6px', background: isPrivate ? theme.primary : 'transparent', color: isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔒 Privatni</button>
+              <button onClick={() => setIsPrivate(false)} style={{ flex: 1, padding: '6px', background: !isPrivate ? theme.primary : 'transparent', color: !isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>👥 Deljeni</button>
             </div>
-
             {!isPrivate && otherUsers.length > 0 && (
               <div style={{ marginBottom: 10 }}>
                 <p style={{ fontSize: 12, color: '#666', margin: '0 0 6px' }}>Dodeli pristup:</p>
                 {otherUsers.map(u => (
                   <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 13 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.includes(u.id)}
-                      onChange={() => toggleUser(u.id)}
-                    />
+                    <input type="checkbox" checked={selectedUsers.includes(u.id)} onChange={() => toggleUser(u.id)} />
                     {u.email || u.id.slice(0, 8)}
                   </label>
                 ))}
               </div>
             )}
-
-            <button
-              onClick={createFolder}
-              style={{ width: '100%', padding: '8px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-              Napravi folder
-            </button>
+            <button onClick={createFolder} style={{ width: '100%', padding: '8px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Napravi folder</button>
           </div>
         )}
 
         {folders.map(folder => (
-          <div
-            key={folder.id}
-            onClick={() => openFolder(folder)}
+          <div key={folder.id} onClick={() => openFolder(folder)}
             style={{ padding: '10px 14px', background: activeFolder?.id === folder.id ? theme.primary : '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: activeFolder?.id === folder.id ? theme.white : '#222' }}>
@@ -206,20 +219,16 @@ export default function Folders({ session }) {
               </p>
             </div>
             {folder.owner_id === session.user.id && (
-              <button
-                onClick={e => { e.stopPropagation(); deleteFolder(folder) }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeFolder?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#c0392b', fontSize: 14, padding: '2px 6px' }}>
-                ×
-              </button>
+              <button onClick={e => { e.stopPropagation(); deleteFolder(folder) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeFolder?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#c0392b', fontSize: 16, padding: '2px 6px' }}>×</button>
             )}
           </div>
         ))}
 
-        {folders.length === 0 && (
-          <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>
-        )}
+        {folders.length === 0 && <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>}
       </div>
 
+      {/* Desna strana */}
       <div style={{ flex: 1 }}>
         {!activeFolder ? (
           <div style={{ textAlign: 'center', padding: 64, color: '#aaa' }}>
@@ -230,12 +239,47 @@ export default function Folders({ session }) {
         ) : (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: theme.primary }}>{activeFolder.is_private ? '🔒' : '👥'} {activeFolder.name}</h3>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-                {uploading ? 'Učitavanje...' : '+ Dodaj PDF'}
-                <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
-              </label>
+              <div>
+                <h3 style={{ margin: 0, color: theme.primary }}>{activeFolder.is_private ? '🔒' : '👥'} {activeFolder.name}</h3>
+                <p style={{ margin: 0, fontSize: 12, color: '#888', marginTop: 2 }}>Kreirao: {getEmail(activeFolder.owner_id)} · {new Date(activeFolder.created_at).toLocaleDateString('sr-RS')}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {isOwner && (
+                  <button onClick={() => setShowDetails(!showDetails)}
+                    style={{ padding: '7px 14px', background: showDetails ? theme.accent : 'transparent', color: showDetails ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                    👥 Članovi ({members.length})
+                  </button>
+                )}
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+                  {uploading ? 'Učitavanje...' : '+ Dodaj PDF'}
+                  <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
+                </label>
+              </div>
             </div>
+
+            {showDetails && isOwner && (
+              <div style={{ padding: 16, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 16 }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: theme.primary, margin: '0 0 10px' }}>Trenutni članovi:</p>
+                {members.length === 0 && <p style={{ fontSize: 13, color: '#888', margin: '0 0 10px' }}>Nema članova</p>}
+                {members.map(m => (
+                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
+                    <span style={{ fontSize: 13 }}>{m.profiles?.email || m.user_id.slice(0, 8)}</span>
+                    <button onClick={() => removeMember(m.id)} style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 12 }}>Ukloni</button>
+                  </div>
+                ))}
+                {nonMembers.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: theme.primary, margin: '0 0 8px' }}>Dodaj člana:</p>
+                    {nonMembers.map(u => (
+                      <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                        <span style={{ fontSize: 13 }}>{u.email || u.id.slice(0, 8)}</span>
+                        <button onClick={() => addMember(u.id)} style={{ padding: '4px 10px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Dodaj</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {files.length === 0 && (
               <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
@@ -250,13 +294,20 @@ export default function Folders({ session }) {
                   <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
                   <div>
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
-                    <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>{Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}</p>
+                    <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>
+                      {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')} · Dodao: {f.profiles?.email || getEmail(f.owner_id)}
+                    </p>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => openFile(f)} style={{ padding: '6px 12px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Otvori</button>
                   <button onClick={() => downloadFile(f)} style={{ padding: '6px 12px', background: '#27ae60', color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preuzmi</button>
-                  <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
+                  {(isOwner || f.owner_id === session.user.id) && (
+                    <button onClick={() => renameFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preimenuj</button>
+                  )}
+                  {(isOwner || f.owner_id === session.user.id) && (
+                    <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
+                  )}
                 </div>
               </div>
             ))}
