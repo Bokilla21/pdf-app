@@ -20,12 +20,13 @@ export default function Dashboard({ session }) {
   }, [])
 
   async function fetchFiles() {
-    const { data } = await supabase
-      .from('files')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setFiles(data || [])
-  }
+  const { data } = await supabase
+    .from('files')
+    .select('*')
+    .eq('owner_id', session.user.id)
+    .order('created_at', { ascending: false })
+  setFiles(data || [])
+}
 
   async function handleUpload(e) {
     const file = e.target.files[0]
