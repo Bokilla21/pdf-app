@@ -341,6 +341,17 @@ export default function Folders({ session }) {
           ) : (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+  {breadcrumb.length > 1 && (
+    <button
+      onClick={() => {
+        const prev = breadcrumb[breadcrumb.length - 2]
+        openFolder(prev, true)
+        setBreadcrumb(breadcrumb.slice(0, -1))
+      }}
+      style={{ padding: '5px 10px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12, marginRight: 4 }}>
+      ← Nazad
+    </button>
+  )}
                 {breadcrumb.map((f, i) => (
                   <span key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {i > 0 && <span style={{ color: '#aaa', fontSize: 14 }}>›</span>}
