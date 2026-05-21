@@ -36,7 +36,7 @@ export default function Login() {
         <img src="/assets/mlogo.jpg" alt="Delta Auto Group" style={{ height: 44, borderRadius: 6 }} />
         <div>
           <p style={{ color: '#ffffff', fontWeight: 600, fontSize: 15, margin: 0 }}>Delta Auto Group</p>
-          <p style={{ color: '#a0bcd8', fontSize: 12, margin: 0 }}>PDF Biblioteka</p>
+          <p style={{ color: '#a0bcd8', fontSize: 12, margin: 0 }}>Arhiva</p>
         </div>
       </div>
       <div style={{ background: '#ffffff', padding: 32, borderRadius: '0 0 12px 12px', width: 360, boxShadow: '0 4px 24px rgba(26,58,107,0.12)' }}>

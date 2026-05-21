@@ -9,29 +9,53 @@ const theme = {
   border: '#d0dce8',
 }
 
+const MAX_SIZE = 50 * 1024 * 1024
+
+function FileIcon({ name }) {
+  const isPdf = name.endsWith('.pdf')
+  const isXls = name.endsWith('.xlsx') || name.endsWith('.xls')
+  const isDoc = name.endsWith('.docx') || name.endsWith('.doc')
+  const bg = isPdf ? '#fef0f0' : isXls ? '#e8f5e9' : '#e3f2fd'
+  const border = isPdf ? '#f5c0c0' : isXls ? '#a5d6a7' : '#90caf9'
+  const color = isPdf ? '#c0392b' : isXls ? '#2e7d32' : '#1565c0'
+  const label = isPdf ? 'PDF' : isXls ? 'XLS' : 'DOC'
+  return (
+    <div style={{ width: 36, height: 42, background: bg, border: `1px solid ${border}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color, fontWeight: 600, flexShrink: 0 }}>
+      {label}
+    </div>
+  )
+}
+
 export default function Dashboard({ session }) {
   const [files, setFiles] = useState([])
   const [search, setSearch] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadMsg, setUploadMsg] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
 
   useEffect(() => {
     fetchFiles()
   }, [])
 
- async function fetchFiles() {
-  const { data } = await supabase
-    .from('files')
-    .select('*')
-    .eq('owner_id', session.user.id)
-    .is('folder_id', null)
-    .order('created_at', { ascending: false })
-  setFiles(data || [])
-}
+  async function fetchFiles() {
+    const { data } = await supabase
+      .from('files')
+      .select('*')
+      .eq('owner_id', session.user.id)
+      .is('folder_id', null)
+      .order('created_at', { ascending: false })
+    setFiles(data || [])
+  }
+
   async function handleUpload(e) {
     const file = e.target.files[0]
     if (!file) return
+    if (file.size > MAX_SIZE) {
+      setUploadMsg('❌ Fajl je prevelik — maksimalno 50 MB')
+      return
+    }
     setUploading(true)
+    setUploadMsg('')
     const path = `${session.user.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const { error } = await supabase.storage.from('pdfs').upload(path, file)
     if (!error) {
@@ -41,7 +65,11 @@ export default function Dashboard({ session }) {
         owner_id: session.user.id,
         storage_path: path
       })
+      setUploadMsg('✅ Fajl uspešno dodat!')
+      setTimeout(() => setUploadMsg(''), 3000)
       fetchFiles()
+    } else {
+      setUploadMsg('❌ Greška pri uploadu')
     }
     setUploading(false)
   }
@@ -96,8 +124,7 @@ export default function Dashboard({ session }) {
           <h2 style={{ margin: 0, color: theme.primary, fontSize: 20 }}>Moji dokumenti</h2>
           <p style={{ margin: 0, fontSize: 13, color: '#888', marginTop: 2 }}>{files.length} fajlova · {(totalSize / 1048576).toFixed(1)} MB</p>
         </div>
-        <button
-          onClick={handleLogout}
+        <button onClick={handleLogout}
           style={{ padding: '7px 16px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
           Odjavi se
         </button>
@@ -112,9 +139,7 @@ export default function Dashboard({ session }) {
           onChange={e => setSearch(e.target.value)}
           style={{ flex: 1, padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 14 }}
         />
-        <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
           style={{ padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, color: '#555' }}>
           <option value="created_at">Po datumu</option>
           <option value="name">Po imenu</option>
@@ -122,23 +147,29 @@ export default function Dashboard({ session }) {
         </select>
       </div>
 
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', marginBottom: 24, fontSize: 13 }}>
-        {uploading ? 'Učitavanje...' : '+ Dodaj PDF'}
-        <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>
+        {uploading ? 'Učitavanje...' : '+ Dodaj fajl'}
+        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={handleUpload} style={{ display: 'none' }} />
       </label>
+
+      {uploadMsg && (
+        <div style={{ padding: '10px 14px', background: uploadMsg.startsWith('✅') ? '#f0fff4' : '#fff5f5', border: `1px solid ${uploadMsg.startsWith('✅') ? '#c3e6cb' : '#f5c0c0'}`, borderRadius: 6, marginBottom: 16, fontSize: 13 }}>
+          {uploadMsg}
+        </div>
+      )}
 
       <div>
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: 64, color: '#aaa' }}>
             <p style={{ fontSize: 48, margin: 0 }}>📄</p>
             <p style={{ marginTop: 12, fontSize: 15 }}>Nema fajlova</p>
-            <p style={{ fontSize: 13, color: '#bbb' }}>Klikni "+ Dodaj PDF" da dodaš prvi dokument</p>
+            <p style={{ fontSize: 13, color: '#bbb' }}>Klikni "+ Dodaj fajl" da dodaš prvi dokument</p>
           </div>
         )}
         {filtered.map(f => (
           <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
+              <FileIcon name={f.name} />
               <div>
                 <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
                 <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>{Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')}</p>

@@ -51,7 +51,7 @@ export default function App() {
       <div style={{ background: '#12285a', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src="/assets/mlogo.jpg" alt="Delta Auto Group" style={{ height: 40, borderRadius: 6 }} />
-          <span style={{ color: theme.white, fontWeight: 600, fontSize: 16, letterSpacing: 0.5 }}>PDF Biblioteka</span>
+  <span style={{ color: theme.white, fontWeight: 600, fontSize: 16, letterSpacing: 0.5 }}>Arhiva</span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           <button

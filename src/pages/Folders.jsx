@@ -10,6 +10,20 @@ const theme = {
 
 const MAX_SIZE = 50 * 1024 * 1024
 
+function FileIcon({ name }) {
+  const isPdf = name.endsWith('.pdf')
+  const isXls = name.endsWith('.xlsx') || name.endsWith('.xls')
+  const bg = isPdf ? '#fef0f0' : isXls ? '#e8f5e9' : '#e3f2fd'
+  const border = isPdf ? '#f5c0c0' : isXls ? '#a5d6a7' : '#90caf9'
+  const color = isPdf ? '#c0392b' : isXls ? '#2e7d32' : '#1565c0'
+  const label = isPdf ? 'PDF' : isXls ? 'XLS' : 'DOC'
+  return (
+    <div style={{ width: 36, height: 42, background: bg, border: `1px solid ${border}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color, fontWeight: 600, flexShrink: 0 }}>
+      {label}
+    </div>
+  )
+}
+
 export default function Folders({ session }) {
   const [allFolders, setAllFolders] = useState([])
   const [activeFolder, setActiveFolder] = useState(null)
@@ -358,8 +372,8 @@ export default function Folders({ session }) {
                     </button>
                   )}
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: theme.primary, color: theme.white, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-                    {uploading ? 'Učitavanje...' : '+ Dodaj PDF'}
-                    <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} />
+                    {uploading ? 'Učitavanje...' : '+ Dodaj fajl'}
+                    <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={handleUpload} style={{ display: 'none' }} />
                   </label>
                 </div>
               </div>
@@ -446,7 +460,7 @@ export default function Folders({ session }) {
               {filteredFiles.map(f => (
                 <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
+                    <FileIcon name={f.name} />
                     <div>
                       <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
                       <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>
