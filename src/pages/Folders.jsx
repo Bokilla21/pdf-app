@@ -141,9 +141,12 @@ export default function Folders({ session }) {
   }
 
   async function openFile(f) {
-    const { data } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
-  }
+  console.log('storage_path:', f.storage_path)
+  const { data, error } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
+  console.log('signedUrl data:', data)
+  console.log('signedUrl error:', error)
+  if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+}
 
   async function downloadFile(f) {
     const { data } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
