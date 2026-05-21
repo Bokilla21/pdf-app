@@ -42,8 +42,24 @@ export default function Admin() {
     fetchUsers()
   }
 
+  async function resetPassword(user) {
+    if (!confirm(`Pošalji reset lozinke na ${user.email}?`)) return
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: window.location.origin
+    })
+    if (!error) alert(`Email za reset lozinke poslat na ${user.email}`)
+    else alert('Greška pri slanju emaila')
+  }
+
   async function deleteUser(user) {
     if (!confirm(`Obriši korisnika ${user.email}? Ovo će obrisati i sve njegove fajlove i foldere.`)) return
+    const { data: userFiles } = await supabase
+      .from('files')
+      .select('storage_path')
+      .eq('owner_id', user.id)
+    if (userFiles && userFiles.length > 0) {
+      await supabase.storage.from('pdfs').remove(userFiles.map(f => f.storage_path))
+    }
     await supabase.from('files').delete().eq('owner_id', user.id)
     await supabase.from('folders').delete().eq('owner_id', user.id)
     await supabase.from('folder_members').delete().eq('user_id', user.id)
@@ -53,6 +69,13 @@ export default function Admin() {
 
   async function deleteAllUserFiles(user) {
     if (!confirm(`Obriši sve fajlove korisnika ${user.email}?`)) return
+    const { data: userFiles } = await supabase
+      .from('files')
+      .select('storage_path')
+      .eq('owner_id', user.id)
+    if (userFiles && userFiles.length > 0) {
+      await supabase.storage.from('pdfs').remove(userFiles.map(f => f.storage_path))
+    }
     await supabase.from('files').delete().eq('owner_id', user.id)
     alert('Fajlovi obrisani.')
   }
@@ -98,13 +121,16 @@ export default function Admin() {
                     {u.is_admin ? '⭐ Admin' : 'Korisnik'} · {u.created_at ? new Date(u.created_at).toLocaleDateString('sr-RS') : '—'}
                   </p>
                 </div>
-                <button
-                  onClick={() => toggleAdmin(u)}
+                <button onClick={() => toggleAdmin(u)}
                   style={{ padding: '5px 12px', background: u.is_admin ? '#fff3cd' : '#e8f4fd', color: u.is_admin ? '#856404' : '#1a3a6b', border: `1px solid ${u.is_admin ? '#ffc107' : '#4a90c4'}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                   {u.is_admin ? 'Ukloni admina' : 'Postavi za admina'}
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button onClick={() => resetPassword(u)}
+                  style={{ padding: '5px 12px', background: 'transparent', color: '#4a90c4', border: '1px solid #4a90c4', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                  Reset lozinke
+                </button>
                 <button onClick={() => removeFromAllFolders(u)}
                   style={{ padding: '5px 12px', background: 'transparent', color: '#1a3a6b', border: '1px solid #d0dce8', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                   Ukloni iz svih foldera
