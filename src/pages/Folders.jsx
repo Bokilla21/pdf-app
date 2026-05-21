@@ -23,8 +23,7 @@ function FileIcon({ name }) {
     </div>
   )
 }
-
-export default function Folders({ session }) {
+export default function Folders({ session, isAdmin }) {
   const [allFolders, setAllFolders] = useState([])
   const [activeFolder, setActiveFolder] = useState(null)
   const [breadcrumb, setBreadcrumb] = useState([])
@@ -321,8 +320,8 @@ export default function Folders({ session }) {
                   {folder.owner_id === session.user.id ? 'Moj' : 'Deljeni'}
                 </p>
               </div>
-              {folder.owner_id === session.user.id && (
-                <button onClick={e => { e.stopPropagation(); deleteFolder(folder) }}
+              {(folder.owner_id === session.user.id || isAdmin) && (
+  <button onClick={e => { e.stopPropagation(); deleteFolder(folder) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: breadcrumb[0]?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#c0392b', fontSize: 16, padding: '0 4px', flexShrink: 0 }}>×</button>
               )}
             </div>

@@ -75,7 +75,7 @@ export default function App() {
       </div>
       <div style={{ maxWidth: 1000, margin: '0 auto', background: '#ffffff', minHeight: 'calc(100vh - 64px)', padding: '32px 24px' }}>
         {page === 'admin' && isAdmin && <Admin />}
-        {page === 'folders' && <Folders session={session} />}
+        {page === 'folders' && <Folders session={session} isAdmin={isAdmin} />}
         {page === 'dashboard' && <Dashboard session={session} />}
       </div>
     </div>
