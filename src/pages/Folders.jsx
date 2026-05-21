@@ -104,7 +104,7 @@ export default function Folders({ session }) {
       .from('folders')
       .insert({
         name: folderName,
-        is_private: isPrivate,
+        is_private: activeFolder ? activeFolder.is_private : isPrivate,
         owner_id: session.user.id,
         parent_id: activeFolder?.id || null
       })
