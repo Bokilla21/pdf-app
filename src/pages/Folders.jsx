@@ -75,7 +75,6 @@ export default function Folders({ session }) {
     setGlobalResults([])
     fetchFiles(folder.id)
     fetchMembers(folder.id)
-
     if (!fromBreadcrumb) {
       setBreadcrumb(prev => {
         const idx = prev.findIndex(f => f.id === folder.id)
@@ -141,7 +140,7 @@ export default function Folders({ session }) {
   }
 
   async function openFile(f) {
-    const { data, error } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
+    const { data } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
@@ -219,11 +218,8 @@ export default function Folders({ session }) {
     return allFolders.find(f => f.id === folderId)?.name || '—'
   }
 
-  // Glavni folderi (bez parent)
   const rootFolders = allFolders.filter(f => !f.parent_id)
-  // Subfolderi aktivnog foldera
   const subFolders = activeFolder ? allFolders.filter(f => f.parent_id === activeFolder.id) : []
-
   const isOwner = activeFolder?.owner_id === session.user.id
   const memberIds = members.map(m => m.user_id)
   const otherUsers = users.filter(u => u.id !== session.user.id)
@@ -239,7 +235,6 @@ export default function Folders({ session }) {
 
   return (
     <div>
-      {/* Globalna pretraga */}
       <div style={{ marginBottom: 24 }}>
         <input
           placeholder="🔍 Pretraži po svim folderima..."
@@ -268,7 +263,6 @@ export default function Folders({ session }) {
       </div>
 
       <div style={{ display: 'flex', gap: 24, minHeight: 600 }}>
-        {/* Leva strana - root folderi */}
         <div style={{ width: 220, flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0, color: theme.primary, fontSize: 15 }}>Folderi</h3>
@@ -323,7 +317,6 @@ export default function Folders({ session }) {
           {rootFolders.length === 0 && <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>}
         </div>
 
-        {/* Desna strana */}
         <div style={{ flex: 1 }}>
           {!activeFolder ? (
             <div style={{ textAlign: 'center', padding: 64, color: '#aaa' }}>
@@ -333,7 +326,6 @@ export default function Folders({ session }) {
             </div>
           ) : (
             <div>
-              {/* Breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
                 {breadcrumb.map((f, i) => (
                   <span key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -372,7 +364,6 @@ export default function Folders({ session }) {
                 </div>
               </div>
 
-              {/* Novi subfolder forma */}
               {showNewFolder && activeFolder && (
                 <div style={{ padding: 14, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 16 }}>
                   <p style={{ fontSize: 13, color: '#555', margin: '0 0 8px' }}>Novi subfolder unutar <strong>{activeFolder.name}</strong>:</p>
@@ -397,4 +388,88 @@ export default function Folders({ session }) {
                   {members.length === 0 && <p style={{ fontSize: 13, color: '#888', margin: '0 0 10px' }}>Nema članova</p>}
                   {members.map(m => (
                     <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
-                      <span style={{ fontSize: 13
+                      <span style={{ fontSize: 13 }}>{getEmail(m.user_id)}</span>
+                      <button onClick={() => removeMember(m.id)} style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 12 }}>Ukloni</button>
+                    </div>
+                  ))}
+                  {nonMembers.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: theme.primary, margin: '0 0 8px' }}>Dodaj člana:</p>
+                      {nonMembers.map(u => (
+                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                          <span style={{ fontSize: 13 }}>{u.email || u.id.slice(0, 8)}</span>
+                          <button onClick={() => addMember(u.id)} style={{ padding: '4px 10px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Dodaj</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {subFolders.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontSize: 12, color: '#888', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Subfolderi</p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {subFolders.map(sf => (
+                      <div key={sf.id} onClick={() => openFolder(sf)}
+                        style={{ padding: '8px 14px', background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>📁</span>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: theme.primary }}>{sf.name}</span>
+                        {sf.owner_id === session.user.id && (
+                          <button onClick={e => { e.stopPropagation(); deleteFolder(sf) }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0392b', fontSize: 14, padding: '0 2px' }}>×</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <input placeholder="Pretraži fajlove u folderu..." value={search} onChange={e => setSearch(e.target.value)}
+                  style={{ flex: 1, padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 14 }} />
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  style={{ padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, color: '#555' }}>
+                  <option value="created_at">Po datumu</option>
+                  <option value="name">Po imenu</option>
+                  <option value="size">Po veličini</option>
+                </select>
+              </div>
+
+              {filteredFiles.length === 0 && subFolders.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
+                  <p style={{ fontSize: 32, margin: 0 }}>📄</p>
+                  <p style={{ marginTop: 8, fontSize: 14 }}>Folder je prazan</p>
+                </div>
+              )}
+
+              {filteredFiles.map(f => (
+                <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
+                    <div>
+                      <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
+                      <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>
+                        {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')} · Dodao: {getEmail(f.owner_id)}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => openFile(f)} style={{ padding: '6px 12px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Otvori</button>
+                    <button onClick={() => downloadFile(f)} style={{ padding: '6px 12px', background: '#27ae60', color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preuzmi</button>
+                    {(isOwner || f.owner_id === session.user.id) && (
+                      <button onClick={() => renameFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preimenuj</button>
+                    )}
+                    {(isOwner || f.owner_id === session.user.id) && (
+                      <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
