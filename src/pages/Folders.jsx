@@ -8,12 +8,12 @@ const theme = {
   border: '#d0dce8',
 }
 
-const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
+const MAX_SIZE = 50 * 1024 * 1024
 
 export default function Folders({ session }) {
-  const [folders, setFolders] = useState([])
-  const [folderFileCounts, setFolderFileCounts] = useState({})
+  const [allFolders, setAllFolders] = useState([])
   const [activeFolder, setActiveFolder] = useState(null)
+  const [breadcrumb, setBreadcrumb] = useState([])
   const [files, setFiles] = useState([])
   const [users, setUsers] = useState([])
   const [members, setMembers] = useState([])
@@ -31,29 +31,16 @@ export default function Folders({ session }) {
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
-    fetchFolders()
+    fetchAllFolders()
     fetchUsers()
   }, [])
 
-  async function fetchFolders() {
+  async function fetchAllFolders() {
     const { data } = await supabase
       .from('folders')
       .select('*')
       .order('created_at', { ascending: false })
-    setFolders(data || [])
-    if (data) fetchFileCounts(data)
-  }
-
-  async function fetchFileCounts(folderList) {
-    const counts = {}
-    for (const folder of folderList) {
-      const { count } = await supabase
-        .from('files')
-        .select('*', { count: 'exact', head: true })
-        .eq('folder_id', folder.id)
-      counts[folder.id] = count || 0
-    }
-    setFolderFileCounts(counts)
+    setAllFolders(data || [])
   }
 
   async function fetchUsers() {
@@ -78,11 +65,36 @@ export default function Folders({ session }) {
     setMembers(data || [])
   }
 
+  async function openFolder(folder, fromBreadcrumb = false) {
+    setActiveFolder(folder)
+    setShowDetails(false)
+    setSearch('')
+    setSortBy('created_at')
+    setUploadMsg('')
+    setGlobalSearch('')
+    setGlobalResults([])
+    fetchFiles(folder.id)
+    fetchMembers(folder.id)
+
+    if (!fromBreadcrumb) {
+      setBreadcrumb(prev => {
+        const idx = prev.findIndex(f => f.id === folder.id)
+        if (idx >= 0) return prev.slice(0, idx + 1)
+        return [...prev, folder]
+      })
+    }
+  }
+
   async function createFolder() {
     if (!folderName.trim()) return
     const { data, error } = await supabase
       .from('folders')
-      .insert({ name: folderName, is_private: isPrivate, owner_id: session.user.id })
+      .insert({
+        name: folderName,
+        is_private: isPrivate,
+        owner_id: session.user.id,
+        parent_id: activeFolder?.id || null
+      })
       .select()
       .single()
     if (!error && data) {
@@ -95,20 +107,8 @@ export default function Folders({ session }) {
       setIsPrivate(true)
       setSelectedUsers([])
       setShowNewFolder(false)
-      fetchFolders()
+      fetchAllFolders()
     }
-  }
-
-  async function openFolder(folder) {
-    setActiveFolder(folder)
-    setShowDetails(false)
-    setSearch('')
-    setSortBy('created_at')
-    setUploadMsg('')
-    setGlobalSearch('')
-    setGlobalResults([])
-    fetchFiles(folder.id)
-    fetchMembers(folder.id)
   }
 
   async function handleUpload(e) {
@@ -133,7 +133,7 @@ export default function Folders({ session }) {
       setUploadMsg('✅ Fajl uspešno dodat!')
       setTimeout(() => setUploadMsg(''), 3000)
       fetchFiles(activeFolder.id)
-      fetchFolders()
+      fetchAllFolders()
     } else {
       setUploadMsg('❌ Greška pri uploadu')
     }
@@ -141,12 +141,9 @@ export default function Folders({ session }) {
   }
 
   async function openFile(f) {
-  console.log('storage_path:', f.storage_path)
-  const { data, error } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
-  console.log('signedUrl data:', data)
-  console.log('signedUrl error:', error)
-  if (data?.signedUrl) window.open(data.signedUrl, '_blank')
-}
+    const { data, error } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
 
   async function downloadFile(f) {
     const { data } = await supabase.storage.from('pdfs').createSignedUrl(f.storage_path, 60)
@@ -163,7 +160,7 @@ export default function Folders({ session }) {
     await supabase.storage.from('pdfs').remove([f.storage_path])
     await supabase.from('files').delete().eq('id', f.id)
     fetchFiles(activeFolder.id)
-    fetchFolders()
+    fetchAllFolders()
   }
 
   async function renameFile(f) {
@@ -178,8 +175,11 @@ export default function Folders({ session }) {
   async function deleteFolder(folder) {
     if (!confirm(`Obriši folder "${folder.name}"?`)) return
     await supabase.from('folders').delete().eq('id', folder.id)
-    if (activeFolder?.id === folder.id) setActiveFolder(null)
-    fetchFolders()
+    if (activeFolder?.id === folder.id) {
+      setActiveFolder(null)
+      setBreadcrumb([])
+    }
+    fetchAllFolders()
   }
 
   async function addMember(uid) {
@@ -198,7 +198,7 @@ export default function Folders({ session }) {
     setSearching(true)
     const { data } = await supabase
       .from('files')
-      .select('*, folder_id')
+      .select('*')
       .ilike('name', `%${q}%`)
       .not('folder_id', 'is', null)
     setGlobalResults(data || [])
@@ -216,12 +216,17 @@ export default function Folders({ session }) {
   }
 
   function getFolderName(folderId) {
-    return folders.find(f => f.id === folderId)?.name || '—'
+    return allFolders.find(f => f.id === folderId)?.name || '—'
   }
 
-  const otherUsers = users.filter(u => u.id !== session.user.id)
+  // Glavni folderi (bez parent)
+  const rootFolders = allFolders.filter(f => !f.parent_id)
+  // Subfolderi aktivnog foldera
+  const subFolders = activeFolder ? allFolders.filter(f => f.parent_id === activeFolder.id) : []
+
   const isOwner = activeFolder?.owner_id === session.user.id
   const memberIds = members.map(m => m.user_id)
+  const otherUsers = users.filter(u => u.id !== session.user.id)
   const nonMembers = otherUsers.filter(u => !memberIds.includes(u.id) && u.id !== activeFolder?.owner_id)
 
   const filteredFiles = files
@@ -263,58 +268,59 @@ export default function Folders({ session }) {
       </div>
 
       <div style={{ display: 'flex', gap: 24, minHeight: 600 }}>
-        {/* Leva strana */}
-        <div style={{ width: 260, flexShrink: 0 }}>
+        {/* Leva strana - root folderi */}
+        <div style={{ width: 220, flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0, color: theme.primary, fontSize: 16 }}>Folderi</h3>
-            <button onClick={() => setShowNewFolder(!showNewFolder)}
-              style={{ padding: '5px 12px', background: theme.primary, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-              + Novi
-            </button>
+            <h3 style={{ margin: 0, color: theme.primary, fontSize: 15 }}>Folderi</h3>
+            {!activeFolder && (
+              <button onClick={() => setShowNewFolder(!showNewFolder)}
+                style={{ padding: '5px 10px', background: theme.primary, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                + Novi
+              </button>
+            )}
           </div>
 
-          {showNewFolder && (
-            <div style={{ padding: 16, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 16 }}>
+          {!activeFolder && showNewFolder && (
+            <div style={{ padding: 14, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 12 }}>
               <input placeholder="Naziv foldera" value={folderName} onChange={e => setFolderName(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, marginBottom: 10, boxSizing: 'border-box' }} />
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <button onClick={() => setIsPrivate(true)} style={{ flex: 1, padding: '6px', background: isPrivate ? theme.primary : 'transparent', color: isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔒 Privatni</button>
-                <button onClick={() => setIsPrivate(false)} style={{ flex: 1, padding: '6px', background: !isPrivate ? theme.primary : 'transparent', color: !isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>👥 Deljeni</button>
+                style={{ width: '100%', padding: '7px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <button onClick={() => setIsPrivate(true)} style={{ flex: 1, padding: '5px', background: isPrivate ? theme.primary : 'transparent', color: isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>🔒 Privatni</button>
+                <button onClick={() => setIsPrivate(false)} style={{ flex: 1, padding: '5px', background: !isPrivate ? theme.primary : 'transparent', color: !isPrivate ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>👥 Deljeni</button>
               </div>
               {!isPrivate && otherUsers.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <p style={{ fontSize: 12, color: '#666', margin: '0 0 6px' }}>Dodeli pristup:</p>
+                <div style={{ marginBottom: 8 }}>
                   {otherUsers.map(u => (
-                    <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 13 }}>
+                    <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', cursor: 'pointer', fontSize: 12 }}>
                       <input type="checkbox" checked={selectedUsers.includes(u.id)} onChange={() => toggleUser(u.id)} />
                       {u.email || u.id.slice(0, 8)}
                     </label>
                   ))}
                 </div>
               )}
-              <button onClick={createFolder} style={{ width: '100%', padding: '8px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Napravi folder</button>
+              <button onClick={createFolder} style={{ width: '100%', padding: '7px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Napravi</button>
             </div>
           )}
 
-          {folders.map(folder => (
-            <div key={folder.id} onClick={() => openFolder(folder)}
-              style={{ padding: '10px 14px', background: activeFolder?.id === folder.id ? theme.primary : '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: activeFolder?.id === folder.id ? theme.white : '#222' }}>
+          {rootFolders.map(folder => (
+            <div key={folder.id} onClick={() => { setBreadcrumb([folder]); openFolder(folder) }}
+              style={{ padding: '9px 12px', background: breadcrumb[0]?.id === folder.id ? theme.primary : '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 5, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: breadcrumb[0]?.id === folder.id ? theme.white : '#222', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {folder.is_private ? '🔒' : '👥'} {folder.name}
                 </p>
-                <p style={{ margin: 0, fontSize: 11, color: activeFolder?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#888' }}>
-                  {folder.owner_id === session.user.id ? 'Moj folder' : 'Deljeni'} · {folderFileCounts[folder.id] ?? 0} fajlova
+                <p style={{ margin: 0, fontSize: 11, color: breadcrumb[0]?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#888' }}>
+                  {folder.owner_id === session.user.id ? 'Moj' : 'Deljeni'}
                 </p>
               </div>
               {folder.owner_id === session.user.id && (
                 <button onClick={e => { e.stopPropagation(); deleteFolder(folder) }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: activeFolder?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#c0392b', fontSize: 16, padding: '2px 6px' }}>×</button>
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: breadcrumb[0]?.id === folder.id ? 'rgba(255,255,255,0.7)' : '#c0392b', fontSize: 16, padding: '0 4px', flexShrink: 0 }}>×</button>
               )}
             </div>
           ))}
 
-          {folders.length === 0 && <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>}
+          {rootFolders.length === 0 && <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', marginTop: 24 }}>Nema foldera</p>}
         </div>
 
         {/* Desna strana */}
@@ -327,6 +333,20 @@ export default function Folders({ session }) {
             </div>
           ) : (
             <div>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                {breadcrumb.map((f, i) => (
+                  <span key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {i > 0 && <span style={{ color: '#aaa', fontSize: 14 }}>›</span>}
+                    <span
+                      onClick={() => { openFolder(f, true); setBreadcrumb(breadcrumb.slice(0, i + 1)) }}
+                      style={{ fontSize: 13, color: i === breadcrumb.length - 1 ? theme.primary : '#4a90c4', cursor: 'pointer', fontWeight: i === breadcrumb.length - 1 ? 600 : 400 }}>
+                      {f.name}
+                    </span>
+                  </span>
+                ))}
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <h3 style={{ margin: 0, color: theme.primary }}>{activeFolder.is_private ? '🔒' : '👥'} {activeFolder.name}</h3>
@@ -335,9 +355,13 @@ export default function Folders({ session }) {
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setShowNewFolder(!showNewFolder)}
+                    style={{ padding: '7px 12px', background: showNewFolder ? theme.accent : 'transparent', color: showNewFolder ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                    📁 + Subfolder
+                  </button>
                   {isOwner && (
                     <button onClick={() => setShowDetails(!showDetails)}
-                      style={{ padding: '7px 14px', background: showDetails ? theme.accent : 'transparent', color: showDetails ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                      style={{ padding: '7px 12px', background: showDetails ? theme.accent : 'transparent', color: showDetails ? theme.white : theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                       👥 Članovi ({members.length})
                     </button>
                   )}
@@ -347,6 +371,19 @@ export default function Folders({ session }) {
                   </label>
                 </div>
               </div>
+
+              {/* Novi subfolder forma */}
+              {showNewFolder && activeFolder && (
+                <div style={{ padding: 14, background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 16 }}>
+                  <p style={{ fontSize: 13, color: '#555', margin: '0 0 8px' }}>Novi subfolder unutar <strong>{activeFolder.name}</strong>:</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input placeholder="Naziv subfoldera" value={folderName} onChange={e => setFolderName(e.target.value)}
+                      style={{ flex: 1, padding: '8px 10px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13 }} />
+                    <button onClick={createFolder} style={{ padding: '8px 16px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Napravi</button>
+                    <button onClick={() => setShowNewFolder(false)} style={{ padding: '8px 12px', background: 'transparent', color: '#888', border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Otkaži</button>
+                  </div>
+                </div>
+              )}
 
               {uploadMsg && (
                 <div style={{ padding: '10px 14px', background: uploadMsg.startsWith('✅') ? '#f0fff4' : '#fff5f5', border: `1px solid ${uploadMsg.startsWith('✅') ? '#c3e6cb' : '#f5c0c0'}`, borderRadius: 6, marginBottom: 16, fontSize: 13 }}>
@@ -360,69 +397,4 @@ export default function Folders({ session }) {
                   {members.length === 0 && <p style={{ fontSize: 13, color: '#888', margin: '0 0 10px' }}>Nema članova</p>}
                   {members.map(m => (
                     <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${theme.border}` }}>
-                      <span style={{ fontSize: 13 }}>{getEmail(m.user_id)}</span>
-                      <button onClick={() => removeMember(m.id)} style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 12 }}>Ukloni</button>
-                    </div>
-                  ))}
-                  {nonMembers.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, color: theme.primary, margin: '0 0 8px' }}>Dodaj člana:</p>
-                      {nonMembers.map(u => (
-                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-                          <span style={{ fontSize: 13 }}>{u.email || u.id.slice(0, 8)}</span>
-                          <button onClick={() => addMember(u.id)} style={{ padding: '4px 10px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>Dodaj</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <input placeholder="Pretraži fajlove u folderu..." value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ flex: 1, padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 14 }} />
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                  style={{ padding: '9px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 13, color: '#555' }}>
-                  <option value="created_at">Po datumu</option>
-                  <option value="name">Po imenu</option>
-                  <option value="size">Po veličini</option>
-                </select>
-              </div>
-
-              {filteredFiles.length === 0 && (
-                <div style={{ textAlign: 'center', padding: 48, color: '#aaa' }}>
-                  <p style={{ fontSize: 32, margin: 0 }}>📄</p>
-                  <p style={{ marginTop: 8, fontSize: 14 }}>Folder je prazan</p>
-                </div>
-              )}
-
-              {filteredFiles.map(f => (
-                <div key={f.id} style={{ padding: '14px 16px', background: '#f8fafd', border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 42, background: '#fef0f0', border: '1px solid #f5c0c0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#c0392b', fontWeight: 600, flexShrink: 0 }}>PDF</div>
-                    <div>
-                      <p style={{ fontWeight: 500, margin: 0, fontSize: 14, color: '#222' }}>{f.name}</p>
-                      <p style={{ fontSize: 12, color: '#888', margin: 0, marginTop: 2 }}>
-                        {Math.round(f.size / 1024)} KB · {new Date(f.created_at).toLocaleDateString('sr-RS')} · Dodao: {getEmail(f.owner_id)}
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => openFile(f)} style={{ padding: '6px 12px', background: theme.accent, color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Otvori</button>
-                    <button onClick={() => downloadFile(f)} style={{ padding: '6px 12px', background: '#27ae60', color: theme.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preuzmi</button>
-                    {(isOwner || f.owner_id === session.user.id) && (
-                      <button onClick={() => renameFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: theme.primary, border: `1px solid ${theme.border}`, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Preimenuj</button>
-                    )}
-                    {(isOwner || f.owner_id === session.user.id) && (
-                      <button onClick={() => deleteFile(f)} style={{ padding: '6px 12px', background: 'transparent', color: '#c0392b', border: '1px solid #f5c0c0', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Obriši</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+                      <span style={{ fontSize: 13
