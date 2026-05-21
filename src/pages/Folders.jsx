@@ -439,7 +439,7 @@ export default function Folders({ session, isAdmin }) {
                         style={{ padding: '8px 14px', background: '#f0f4f8', border: `1px solid ${theme.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 16 }}>📁</span>
                         <span style={{ fontSize: 13, fontWeight: 500, color: theme.primary }}>{sf.name}</span>
-                        {sf.owner_id === session.user.id && (
+                        {(sf.owner_id === session.user.id || isAdmin) && (
                           <button onClick={e => { e.stopPropagation(); deleteFolder(sf) }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c0392b', fontSize: 14, padding: '0 2px' }}>×</button>
                         )}
